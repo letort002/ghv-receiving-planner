@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GHV · Planificador de Recepciones</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --cream: #EEEDE2;
+    --terra: #C8784A;
+    --olive: #5C6832;
+    --dark: #383830;
+    --olive-light: #5C683218;
+    --olive-mid: #5C683235;
+    --terra-light: #C8784A18;
+    --red-light: #FCEBEB;
+    --red-dark: #A32D2D;
+    --amber-light: #FAEEDA;
+    --amber-dark: #854F0B;
+    --green-light: #EAF3DE;
+    --green-dark: #27500A;
+    --border: #38383018;
+    --border-mid: #38383030;
+    --text: #383830;
+    --text-muted: #38383080;
+    --text-faint: #38383050;
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --surface2: #F5F5EF;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .app { max-width: 1100px; margin: 0 auto; }
+
+  /* Header */
+  .hdr {
+    background: var(--dark);
+    color: var(--cream);
+    border-radius: 12px;
+    padding: 16px 22px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .hdr-badge {
+    background: var(--terra);
+    color: var(--cream);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 6px;
+    letter-spacing: .5px;
+  }
+  .hdr-title { font-size: 16px; font-weight: 400; }
+  .hdr-sub { font-size: 11px; color: #EEEDE260; margin-left: auto; font-family: 'IBM Plex Mono', monospace; }
+
+  /* Uploads */
+  .uploads { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .upload-card {
+    border: 1.5px dashed var(--border-mid);
+    border-radius: 12px;
+    padding: 22px 18px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .15s;
+    position: relative;
+    background: var(--surface);
+  }
+  .upload-card input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .upload-card:hover { border-color: var(--olive); background: var(--olive-light); }
+  .upload-card.done { border-style: solid; border-color: var(--olive); background: var(--olive-light); }
+  .upload-icon {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 10px; font-size: 18px;
+  }
+  .u1 .upload-icon { background: var(--olive-light); }
+  .u2 .upload-icon { background: var(--terra-light); }
+  .upload-card h3 { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .upload-card p { font-size: 11px; color: var(--text-muted); }
+  .upload-card .file-name { font-size: 11px; color: var(--olive); font-weight: 500; margin-top: 8px; word-break: break-all; }
+
+  /* Column mapping */
+  .col-section {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    display: none;
+  }
+  .col-section.visible { display: block; }
+  .col-section-title { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+  .col-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .col-grid label { display: block; font-size: 10px; color: var(--text-muted); margin-bottom: 3px; }
+  .col-grid select {
+    width: 100%; font-size: 12px; padding: 5px 6px;
+    border: 0.5px solid var(--border-mid); border-radius: 6px;
+    background: var(--surface2); color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  /* Config */
+  .cfg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .cfg-item {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .cfg-item label { display: block; font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
+  .cfg-item input, .cfg-item select {
+    width: 100%; font-size: 13px; padding: 5px 7px;
+    border: 0.5px solid var(--border-mid); border-radius: 6px;
+    background: var(--surface2); color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  /* Button */
+  .btn-gen {
+    width: 100%; background: var(--dark); color: var(--cream);
+    border: none; padding: 13px; border-radius: 10px;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif;
+    transition: opacity .15s; margin-bottom: 8px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-gen:hover { opacity: .85; }
+  .btn-gen:disabled { opacity: .35; cursor: not-allowed; }
+  .btn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--terra); display: inline-block; }
+
+  /* Status */
+  .status-bar {
+    background: var(--olive-light); border: 0.5px solid var(--olive-mid);
+    border-radius: 8px; padding: 10px 14px;
+    font-size: 12px; color: var(--olive); text-align: center;
+    margin-bottom: 12px; display: none;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* Results */
+  #results { display: none; }
+  .sec-label {
+    font-size: 10px; font-weight: 500; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: .6px; margin: 16px 0 8px;
+  }
+
+  /* Summary cards */
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .card {
+    background: var(--surface); border: 0.5px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; text-align: center;
+  }
+  .card .v { font-size: 28px; font-weight: 300; font-family: 'IBM Plex Mono', monospace; }
+  .card .l { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; margin-top: 4px; }
+  .v-olive { color: var(--olive); }
+  .v-terra { color: var(--terra); }
+  .v-red { color: var(--red-dark); }
+
+  /* Alerts */
+  .alerts { margin-bottom: 16px; }
+  .alert {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 9px 14px; border-radius: 8px; margin-bottom: 6px;
+    font-size: 12px; border-left: 3px solid;
+  }
+  .alert-crit { background: var(--red-light); color: var(--red-dark); border-color: #E24B4A; }
+  .alert-warn { background: var(--amber-light); color: var(--amber-dark); border-color: #EF9F27; }
+  .alert-ok { background: var(--green-light); color: var(--green-dark); border-color: #639922; }
+
+  /* Calendar */
+  .cal-wrap {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .cal-head {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    background: var(--dark);
+  }
+  .cal-head div {
+    padding: 8px; text-align: center; font-size: 10px;
+    color: var(--cream); font-weight: 500; letter-spacing: .5px;
+    text-transform: uppercase;
+  }
+  .cal-week {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    border-top: 0.5px solid var(--border);
+  }
+  .cal-day {
+    padding: 8px; border-right: 0.5px solid var(--border);
+    min-height: 100px; font-size: 11px; vertical-align: top;
+  }
+  .cal-day:last-child { border-right: none; }
+  .cal-date {
+    font-size: 9px; color: var(--text-muted); margin-bottom: 6px;
+    font-family: 'IBM Plex Mono', monospace; font-weight: 500;
+  }
+  .prov-pill {
+    display: block; padding: 3px 7px; border-radius: 4px;
+    font-size: 10px; font-weight: 500; margin-bottom: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    cursor: default;
+  }
+  .pp-alta { background: var(--red-light); color: var(--red-dark); }
+  .pp-media { background: var(--amber-light); color: var(--amber-dark); }
+  .pp-baja { background: var(--green-light); color: var(--green-dark); }
+  .load-bar { height: 3px; background: var(--border-mid); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .load-fill { height: 100%; border-radius: 2px; }
+  .lf-ok { background: var(--olive); }
+  .lf-warn { background: #EF9F27; }
+  .lf-over { background: #E24B4A; }
+  .load-txt { font-size: 9px; color: var(--text-faint); margin-top: 2px; font-family: 'IBM Plex Mono', monospace; }
+
+  /* Detail table */
+  .tbl-wrap {
+    background: var(--surface); border: 0.5px solid var(--border);
+    border-radius: 12px; overflow: auto; max-height: 300px; margin-bottom: 16px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th {
+    padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 500;
+    color: var(--text-muted); background: var(--surface2); text-transform: uppercase;
+    letter-spacing: .4px; position: sticky; top: 0;
+    border-bottom: 0.5px solid var(--border);
+  }
+  td { padding: 8px 12px; border-bottom: 0.5px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  .urg-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 8px;
+    font-size: 10px; font-weight: 500;
+  }
+  .ub-alta { background: var(--red-light); color: var(--red-dark); }
+  .ub-media { background: var(--amber-light); color: var(--amber-dark); }
+  .ub-baja { background: var(--green-light); color: var(--green-dark); }
+
+  /* Reasoning */
+  .reasoning {
+    background: var(--surface); border: 0.5px solid var(--border);
+    border-radius: 12px; padding: 14px 18px; font-size: 12px;
+    color: var(--text-muted); line-height: 1.7; margin-bottom: 20px;
+  }
+  .reasoning strong { color: var(--text); font-weight: 500; }
+
+  /* Export */
+  .btn-export {
+    background: transparent; color: var(--olive); border: 1px solid var(--olive);
+    padding: 8px 18px; border-radius: 8px; font-size: 12px; cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif; transition: background .15s;
+  }
+  .btn-export:hover { background: var(--olive-light); }
+
+  .tag-mono {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="hdr">
+    <div class="hdr-badge">GHV · SC</div>
+    <div class="hdr-title">Planificador Inteligente de Recepciones</div>
+    <div class="hdr-sub">Powered by Claude AI</div>
+  </div>
+
+  <!-- Uploads -->
+  <div class="uploads">
+    <div class="upload-card u1" id="box-mp">
+      <input type="file" accept=".xlsx,.xls" onchange="loadFile(this,'mp')">
+      <div class="upload-icon">📋</div>
+      <h3>Master Planning</h3>
+      <p>Plan de compras — proveedores, artículos, cantidades</p>
+      <div class="file-name" id="fname-mp"></div>
+    </div>
+    <div class="upload-card u2" id="box-st">
+      <input type="file" accept=".xlsx,.xls" onchange="loadFile(this,'st')">
+      <div class="upload-icon">📦</div>
+      <h3>Stock Actual</h3>
+      <p>Inventario con días de inventario (DOI) y cantidades</p>
+      <div class="file-name" id="fname-st"></div>
+    </div>
+  </div>
+
+  <!-- Column mapping -->
+  <div class="col-section" id="mp-col-section">
+    <div class="col-section-title">Columnas — Master Planning</div>
+    <div class="col-grid" id="mp-col-grid"></div>
+  </div>
+  <div class="col-section" id="st-col-section">
+    <div class="col-section-title">Columnas — Stock Actual</div>
+    <div class="col-grid" id="st-col-grid"></div>
+  </div>
+
+  <!-- Config -->
+  <div class="cfg">
+    <div class="cfg-item">
+      <label>Fecha de inicio</label>
+      <input type="date" id="start-date">
+    </div>
+    <div class="cfg-item">
+      <label>Máx. proveedores / día</label>
+      <input type="number" id="max-prov" value="2" min="1" max="5">
+    </div>
+    <div class="cfg-item">
+      <label>DOI crítico (días)</label>
+      <input type="number" id="doi-crit" value="7" min="1">
+    </div>
+    <div class="cfg-item">
+      <label>DOI advertencia (días)</label>
+      <input type="number" id="doi-warn" value="15" min="1">
+    </div>
+  </div>
+
+  <button class="btn-gen" id="btn-gen" onclick="generate()" disabled>
+    <span class="btn-dot"></span>
+    Generar plan de recepciones con IA
+  </button>
+  <div class="status-bar" id="status"></div>
+
+  <!-- Results -->
+  <div id="results">
+    <p class="sec-label">Resumen</p>
+    <div class="cards" id="summary-cards"></div>
+
+    <p class="sec-label">Alertas de stock</p>
+    <div class="alerts" id="alertas"></div>
+
+    <p class="sec-label">Calendario de recepciones</p>
+    <div class="cal-wrap">
+      <div class="cal-head">
+        <div>Lunes</div><div>Martes</div><div>Miércoles</div><div>Jueves</div><div>Viernes</div>
+      </div>
+      <div id="cal-body"></div>
+    </div>
+
+    <p class="sec-label">Detalle por proveedor</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Proveedor</th>
+            <th>Fecha asignada</th>
+            <th>Urgencia</th>
+            <th>DOI mínimo</th>
+            <th>Razón IA</th>
+          </tr>
+        </thead>
+        <tbody id="detail-body"></tbody>
+      </table>
+    </div>
+
+    <p class="sec-label">Razonamiento del plan</p>
+    <div class="reasoning" id="reasoning"></div>
+
+    <button class="btn-export" onclick="exportCSV()">Exportar plan a CSV</button>
+  </div>
+
+</div>
+
+<script>
+const state = { mp: null, st: null };
+let lastPlan = null;
+
+// Init date to next Monday
+window.onload = () => {
+  const d = new Date();
+  const dow = d.getDay();
+  const diff = dow === 0 ? 1 : dow === 6 ? 2 : (8 - dow) % 7 || 7;
+  d.setDate(d.getDate() + diff);
+  document.getElementById('start-date').value = d.toISOString().split('T')[0];
+};
+
+function loadFile(input, type) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('fname-' + type).textContent = '✓ ' + file.name;
+  document.getElementById('box-' + type).classList.add('done');
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(e.target.result, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    const headers = data[0].map(h => String(h).trim()).filter(Boolean);
+    const rows = data.slice(1).filter(r => r.some(c => c !== ''));
+    state[type] = { headers, rows, fileName: file.name };
+    renderColMap(type, headers);
+    checkReady();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderColMap(type, headers) {
+  const sectionId = type + '-col-section';
+  const gridId = type + '-col-grid';
+  document.getElementById(sectionId).classList.add('visible');
+  const na = '<option value="">— no aplica —</option>';
+  const opts = headers.map(h => `<option value="${h}">${h}</option>`).join('');
+  const fields = type === 'mp'
+    ? [['Proveedor','mp-proveedor'],['Artículo','mp-articulo'],['Código','mp-codigo'],['Cantidad','mp-cantidad'],['Unidad','mp-unidad'],['Finca','mp-finca']]
+    : [['Artículo','st-articulo'],['Código','st-codigo'],['Cantidad','st-cantidad'],['Unidad','st-unidad'],['DOI (días)','st-doi'],['Stock mín.','st-min']];
+  document.getElementById(gridId).innerHTML = fields.map(([lbl, id]) =>
+    `<div><label>${lbl}</label><select id="${id}">${na}${opts}</select></div>`
+  ).join('');
+  autoDetect(type, headers);
+}
+
+function autoDetect(type, headers) {
+  const n = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const find = (...kws) => { for (const kw of kws) { const h = headers.find(h => n(h).includes(n(kw))); if (h) return h; } return ''; };
+  if (type === 'mp') {
+    sv('mp-proveedor', find('proveedor','supplier','prov'));
+    sv('mp-articulo', find('articulo','descripcion','material','nombre','item','producto'));
+    sv('mp-codigo', find('codigo','code','cod','ref','id'));
+    sv('mp-cantidad', find('cantidad','qty','quantity','cant','total'));
+    sv('mp-unidad', find('unidad','unit','um','medida'));
+    sv('mp-finca', find('finca','farm','site','ubicacion'));
+  } else {
+    sv('st-articulo', find('articulo','descripcion','material','nombre','item','producto'));
+    sv('st-codigo', find('codigo','code','cod','ref','id'));
+    sv('st-cantidad', find('cantidad','qty','stock','saldo','existencia','disponible'));
+    sv('st-unidad', find('unidad','unit','um','medida'));
+    sv('st-doi', find('doi','dias','days','cobertura','inventario','inv'));
+    sv('st-min', find('min','minimo','reorder','punto','seguridad'));
+  }
+}
+
+function sv(id, val) { const el = document.getElementById(id); if (el && val) el.value = val; }
+function gv(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+
+function checkReady() {
+  document.getElementById('btn-gen').disabled = !(state.mp && state.st);
+}
+
+function parseData() {
+  const mpH = state.mp.headers;
+  const stH = state.st.headers;
+  const idx = (h, id) => h.indexOf(gv(id));
+
+  const mpPI = idx(mpH,'mp-proveedor'), mpAI = idx(mpH,'mp-articulo');
+  const mpCI = idx(mpH,'mp-codigo'), mpQI = idx(mpH,'mp-cantidad'), mpUI = idx(mpH,'mp-unidad');
+  const stAI = idx(stH,'st-articulo'), stCI = idx(stH,'st-codigo');
+  const stQI = idx(stH,'st-cantidad'), stDI = idx(stH,'st-doi');
+
+  const stockMap = {};
+  for (const row of state.st.rows) {
+    const art = stAI >= 0 ? String(row[stAI]||'').trim().toLowerCase() : '';
+    const cod = stCI >= 0 ? String(row[stCI]||'').trim() : '';
+    const qty = stQI >= 0 ? parseFloat(row[stQI])||0 : 0;
+    const doi = stDI >= 0 ? (parseFloat(row[stDI])||null) : null;
+    const key = cod || art;
+    if (key) stockMap[key] = { qty, doi };
+  }
+
+  const provMap = {};
+  for (const row of state.mp.rows) {
+    const prov = mpPI >= 0 ? String(row[mpPI]||'').trim() : '';
+    if (!prov) continue;
+    const art = mpAI >= 0 ? String(row[mpAI]||'').trim() : '';
+    const cod = mpCI >= 0 ? String(row[mpCI]||'').trim() : '';
+    const qty = mpQI >= 0 ? parseFloat(row[mpQI])||0 : 0;
+    const um = mpUI >= 0 ? String(row[mpUI]||'').trim() : '';
+    if (!provMap[prov]) provMap[prov] = { proveedor: prov, articulos: [], doiMin: null };
+    const key = cod || art.toLowerCase();
+    const stock = stockMap[key] || null;
+    const doi = stock?.doi ?? null;
+    if (doi !== null && (provMap[prov].doiMin === null || doi < provMap[prov].doiMin))
+      provMap[prov].doiMin = doi;
+    provMap[prov].articulos.push({ art, cod, qty, um, doi, stockQty: stock?.qty ?? null });
+  }
+  return Object.values(provMap);
+}
+
+async function generate() {
+  const btn = document.getElementById('btn-gen');
+  const statusEl = document.getElementById('status');
+  btn.disabled = true;
+  statusEl.style.display = 'block';
+  statusEl.textContent = '⬤ Analizando stock y calculando urgencias...';
+
+  const provList = parseData();
+  const startDate = document.getElementById('start-date').value;
+  const maxProv = parseInt(document.getElementById('max-prov').value) || 2;
+  const doiCrit = parseInt(document.getElementById('doi-crit').value) || 7;
+  const doiWarn = parseInt(document.getElementById('doi-warn').value) || 15;
+
+  const provSummary = provList.map(p => ({
+    proveedor: p.proveedor,
+    num_articulos: p.articulos.length,
+    doi_minimo: p.doiMin,
+    articulos_criticos: p.articulos.filter(a => a.doi !== null && a.doi <= doiCrit).length,
+    articulos_advertencia: p.articulos.filter(a => a.doi !== null && a.doi > doiCrit && a.doi <= doiWarn).length,
+    muestra: p.articulos.slice(0,4).map(a => a.art).filter(Boolean).join(', ')
+  }));
+
+  const prompt = `Eres un experto en planificación de supply chain para GHV (Grupo Hoja Verde), operación florícola en Ecuador.
+
+PROVEEDORES DEL PLAN DE COMPRAS (con datos de stock):
+${JSON.stringify(provSummary, null, 2)}
+
+PARÁMETROS:
+- Fecha de inicio: ${startDate}
+- Máximo proveedores por día de recepción: ${maxProv}
+- Solo días hábiles lunes a viernes (sin sábados ni domingos)
+- Equipo de recepción: 3 personas
+- DOI crítico ≤ ${doiCrit} días → urgencia ALTA, llegan primero
+- DOI entre ${doiCrit+1} y ${doiWarn} días → urgencia MEDIA
+- DOI > ${doiWarn} días o sin dato → urgencia BAJA
+- Si doi_minimo es null, el artículo no está en stock actual, trátalo como urgencia MEDIA
+
+OBJETIVO:
+1. Asignar cada proveedor a un día hábil específico
+2. Proveedores críticos (urgencia alta) deben llegar en los primeros días
+3. No poner más de ${maxProv} proveedores por día
+4. Distribuir equitativamente para no saturar la bodega
+5. Si hay muchos proveedores, usar varias semanas
+
+Responde ÚNICAMENTE con JSON válido, sin markdown, sin texto adicional. Empieza con { y termina con }:
+{
+  "schedule": [
+    {
+      "fecha": "YYYY-MM-DD",
+      "dia": "Lunes",
+      "proveedores": [
+        {
+          "proveedor": "nombre exacto",
+          "urgencia": "alta|media|baja",
+          "doi_min": 5,
+          "razon": "texto breve explicando por qué este día"
+        }
+      ]
+    }
+  ],
+  "alertas_criticas": ["texto de alerta 1", "texto de alerta 2"],
+  "resumen": "párrafo explicando la lógica general del plan"
+}`;
+
+  try {
+    statusEl.textContent = '⬤ Claude AI generando el calendario óptimo...';
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await resp.json();
+    const raw = data.content.map(b => b.text || '').join('');
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const plan = JSON.parse(clean);
+    lastPlan = plan;
+    renderResults(plan, maxProv);
+    statusEl.style.display = 'none';
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+  } catch(e) {
+    statusEl.textContent = '⚠ Error al generar el plan. Verifica los archivos y el mapeo de columnas.';
+    console.error(e);
+  }
+  btn.disabled = false;
+}
+
+function fmtDate(s) {
+  const d = new Date(s + 'T12:00:00');
+  return d.toLocaleDateString('es-EC', { day: '2-digit', month: 'short' });
+}
+
+function renderResults(plan, maxProv) {
+  const schedule = plan.schedule || [];
+  const allProv = schedule.flatMap(d => d.proveedores || []);
+  const criticos = allProv.filter(p => p.urgencia === 'alta').length;
+  const medios = allProv.filter(p => p.urgencia === 'media').length;
+
+  document.getElementById('summary-cards').innerHTML = `
+    <div class="card"><div class="v v-olive tag-mono">${allProv.length}</div><div class="l">Total proveedores</div></div>
+    <div class="card"><div class="v v-olive tag-mono">${schedule.length}</div><div class="l">Días de recepción</div></div>
+    <div class="card"><div class="v ${criticos>0?'v-red':'v-olive'} tag-mono">${criticos}</div><div class="l">Urgencia alta</div></div>
+    <div class="card"><div class="v v-terra tag-mono">${medios}</div><div class="l">Urgencia media</div></div>
+  `;
+
+  const alertas = plan.alertas_criticas || [];
+  document.getElementById('alertas').innerHTML = alertas.length
+    ? alertas.map(a => `<div class="alert alert-crit">⚠ ${a}</div>`).join('')
+    : '<div class="alert alert-ok">✓ Sin alertas críticas de desabastecimiento</div>';
+
+  // Build calendar grouped by week
+  const weeks = [];
+  let week = new Array(5).fill(null);
+  let prevWeekNum = -1;
+  for (const d of schedule) {
+    const dt = new Date(d.fecha + 'T12:00:00');
+    const dow = dt.getDay(); // 1=Mon..5=Fri
+    const weekNum = getWeekNum(dt);
+    if (weekNum !== prevWeekNum && prevWeekNum !== -1) {
+      weeks.push(week);
+      week = new Array(5).fill(null);
+    }
+    if (dow >= 1 && dow <= 5) week[dow - 1] = d;
+    prevWeekNum = weekNum;
+  }
+  weeks.push(week);
+
+  let calHtml = '';
+  for (const w of weeks) {
+    calHtml += '<div class="cal-week">';
+    for (let i = 0; i < 5; i++) {
+      const d = w[i];
+      if (!d) {
+        calHtml += '<div class="cal-day"><div class="load-bar"><div class="load-fill lf-ok" style="width:0%"></div></div></div>';
+        continue;
+      }
+      const provs = d.proveedores || [];
+      const pct = Math.min(100, Math.round((provs.length / maxProv) * 100));
+      const fillCls = pct >= 100 ? 'lf-over' : pct >= 70 ? 'lf-warn' : 'lf-ok';
+      const pills = provs.map(p =>
+        `<span class="prov-pill pp-${p.urgencia}" title="${p.razon}">${p.proveedor}</span>`
+      ).join('');
+      calHtml += `<div class="cal-day">
+        <div class="cal-date">${d.dia} ${fmtDate(d.fecha)}</div>
+        ${pills}
+        <div class="load-bar"><div class="load-fill ${fillCls}" style="width:${pct}%"></div></div>
+        <div class="load-txt">${provs.length}/${maxProv} proveedores</div>
+      </div>`;
+    }
+    calHtml += '</div>';
+  }
+  document.getElementById('cal-body').innerHTML = calHtml;
+
+  let tbody = '';
+  for (const d of schedule) {
+    for (const p of (d.proveedores || [])) {
+      tbody += `<tr>
+        <td><strong>${p.proveedor}</strong></td>
+        <td class="tag-mono">${d.dia} ${fmtDate(d.fecha)}</td>
+        <td><span class="urg-badge ub-${p.urgencia}">${p.urgencia}</span></td>
+        <td class="tag-mono">${p.doi_min !== null && p.doi_min !== undefined ? p.doi_min + ' días' : '—'}</td>
+        <td style="color:#38383080;font-size:11px">${p.razon || ''}</td>
+      </tr>`;
+    }
+  }
+  document.getElementById('detail-body').innerHTML = tbody;
+  document.getElementById('reasoning').innerHTML = `<strong>Análisis del plan:</strong> ${plan.resumen || ''}`;
+}
+
+function getWeekNum(d) {
+  const start = new Date(d.getFullYear(), 0, 1);
+  return Math.ceil(((d - start) / 86400000 + start.getDay() + 1) / 7);
+}
+
+function exportCSV() {
+  if (!lastPlan) return;
+  const rows = [['Proveedor','Fecha','Día','Urgencia','DOI Mínimo','Razón']];
+  for (const d of (lastPlan.schedule || [])) {
+    for (const p of (d.proveedores || [])) {
+      rows.push([p.proveedor, d.fecha, d.dia, p.urgencia, p.doi_min ?? '', p.razon || '']);
+    }
+  }
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ghv-plan-recepciones.csv';
+  a.click();
+}
+</script>
+</body>
+</html>

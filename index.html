@@ -338,7 +338,18 @@ function parseData(){
     if(stockQty!==null&&(provMap[prov].stockMin===null||stockQty<provMap[prov].stockMin))provMap[prov].stockMin=stockQty;
     provMap[prov].artCount++;
   }
-  return Object.values(provMap);
+  const result = Object.values(provMap);
+  console.log('DEBUG proveedores encontrados:', result.length);
+  if(result.length > 0) console.log('DEBUG muestra:', JSON.stringify(result.slice(0,3)));
+  else {
+    // Log raw date samples
+    const mpH = state.mp.headers;
+    const mpFI = mpH.indexOf(gv('mp-fecha'));
+    const samples = state.mp.rows.slice(0,5).map(r => mpFI>=0 ? r[mpFI] : 'N/A');
+    console.log('DEBUG fecha column index:', mpFI, 'samples:', samples);
+    console.log('DEBUG TODAY:', TODAY);
+  }
+  return result;
 }
 
 function calcUrgencia(p,sc,sw){

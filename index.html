@@ -503,56 +503,26 @@ async function generate() {
   const doiCrit = parseInt(document.getElementById('doi-crit').value) || 7;
   const doiWarn = parseInt(document.getElementById('doi-warn').value) || 15;
 
-  const provSummary = provList.map(p => ({
-    proveedor: p.proveedor,
-    num_articulos: p.articulos.length,
-    doi_minimo: p.doiMin,
-    articulos_criticos: p.articulos.filter(a => a.doi !== null && a.doi <= doiCrit).length,
-    articulos_advertencia: p.articulos.filter(a => a.doi !== null && a.doi > doiCrit && a.doi <= doiWarn).length,
-    muestra: p.articulos.slice(0,4).map(a => a.art).filter(Boolean).join(', ')
-  }));
+  // Sort by urgency: stock=0 first, then by doiMin
+  const provSummary = provList
+    .sort((a,b) => {
+      const aUrg = a.doiMin === null ? 1 : a.doiMin <= doiCrit ? 0 : a.doiMin <= doiWarn ? 1 : 2;
+      const bUrg = b.doiMin === null ? 1 : b.doiMin <= doiCrit ? 0 : b.doiMin <= doiWarn ? 1 : 2;
+      return aUrg - bUrg || (a.doiMin||99) - (b.doiMin||99);
+    })
+    .slice(0, 25)
+    .map(p => ({
+      proveedor: p.proveedor,
+      n_art: p.articulos.length,
+      doi_min: p.doiMin,
+      criticos: p.articulos.filter(a => a.doi !== null && a.doi <= doiCrit).length,
+      muestra: p.articulos.slice(0,2).map(a => a.art.slice(0,30)).filter(Boolean).join(', ')
+    }));
 
-  const prompt = `Eres un experto en planificación de supply chain para GHV (Grupo Hoja Verde), operación florícola en Ecuador.
-
-PROVEEDORES DEL PLAN DE COMPRAS (con datos de stock):
-${JSON.stringify(provSummary, null, 2)}
-
-PARÁMETROS:
-- Fecha de inicio: ${startDate}
-- Máximo proveedores por día de recepción: ${maxProv}
-- Solo días hábiles lunes a viernes (sin sábados ni domingos)
-- Equipo de recepción: 3 personas
-- DOI crítico ≤ ${doiCrit} días → urgencia ALTA, llegan primero
-- DOI entre ${doiCrit+1} y ${doiWarn} días → urgencia MEDIA
-- DOI > ${doiWarn} días o sin dato → urgencia BAJA
-- Si doi_minimo es null, el artículo no está en stock actual, trátalo como urgencia MEDIA
-
-OBJETIVO:
-1. Asignar cada proveedor a un día hábil específico
-2. Proveedores críticos (urgencia alta) deben llegar en los primeros días
-3. No poner más de ${maxProv} proveedores por día
-4. Distribuir equitativamente para no saturar la bodega
-5. Si hay muchos proveedores, usar varias semanas
-
-Responde ÚNICAMENTE con JSON válido, sin markdown, sin texto adicional. Empieza con { y termina con }:
-{
-  "schedule": [
-    {
-      "fecha": "YYYY-MM-DD",
-      "dia": "Lunes",
-      "proveedores": [
-        {
-          "proveedor": "nombre exacto",
-          "urgencia": "alta|media|baja",
-          "doi_min": 5,
-          "razon": "texto breve explicando por qué este día"
-        }
-      ]
-    }
-  ],
-  "alertas_criticas": ["texto de alerta 1", "texto de alerta 2"],
-  "resumen": "párrafo explicando la lógica general del plan"
-}`;
+  const prompt = `GHV supply chain planner. Responde SOLO JSON sin markdown, empieza con {.
+PROVEEDORES:${JSON.stringify(provSummary)}
+REGLAS: inicio=${startDate}, max ${maxProv}/dia, lunes-viernes solo, doi<=${doiCrit}=alta, ${doiCrit+1}-${doiWarn}=media, resto=baja, null=media.
+JSON: {"schedule":[{"fecha":"YYYY-MM-DD","dia":"Lunes","proveedores":[{"proveedor":"nombre","urgencia":"alta","doi_min":5,"razon":"motivo"}]}],"alertas_criticas":[],"resumen":"texto"}\`;
 
   try {
     statusEl.textContent = '⬤ Claude AI generando el calendario óptimo...';

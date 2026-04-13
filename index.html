@@ -503,26 +503,18 @@ async function generate() {
   const doiCrit = parseInt(document.getElementById('doi-crit').value) || 7;
   const doiWarn = parseInt(document.getElementById('doi-warn').value) || 15;
 
-  // Sort by urgency: stock=0 first, then by doiMin
-  const provSummary = provList
-    .sort((a,b) => {
-      const aUrg = a.doiMin === null ? 1 : a.doiMin <= doiCrit ? 0 : a.doiMin <= doiWarn ? 1 : 2;
-      const bUrg = b.doiMin === null ? 1 : b.doiMin <= doiCrit ? 0 : b.doiMin <= doiWarn ? 1 : 2;
-      return aUrg - bUrg || (a.doiMin||99) - (b.doiMin||99);
-    })
-    .slice(0, 12)
-    .map(p => ({
-      proveedor: p.proveedor,
-      n_art: p.articulos.length,
-      doi_min: p.doiMin,
-      criticos: p.articulos.filter(a => a.doi !== null && a.doi <= doiCrit).length,
-      ""
-    }));
+  const provSummary = provList.sort((a,b)=>{const au=a.doiMin===null?50:a.doiMin;const bu=b.doiMin===null?50:b.doiMin;return au-bu;}).slice(0,12).map(p => ({
+    proveedor: p.proveedor,
+    num_articulos: p.articulos.length,
+    doi_minimo: p.doiMin,
+    articulos_criticos: p.articulos.filter(a => a.doi !== null && a.doi <= doiCrit).length,
+    articulos_advertencia: p.articulos.filter(a => a.doi !== null && a.doi > doiCrit && a.doi <= doiWarn).length
+  }));
 
-  const prompt = `GHV supply chain planner. Responde SOLO JSON sin markdown, empieza con {.
+  const prompt = `GHV supply chain planner Ecuador. Solo JSON sin markdown, empieza {.
 PROVEEDORES:${JSON.stringify(provSummary)}
-REGLAS: inicio=${startDate}, max ${maxProv}/dia, lunes-viernes solo, doi<=${doiCrit}=alta, ${doiCrit+1}-${doiWarn}=media, resto=baja, null=media.
-JSON: {"schedule":[{"fecha":"YYYY-MM-DD","dia":"Lunes","proveedores":[{"proveedor":"nombre","urgencia":"alta","doi_min":5,"razon":"motivo"}]}],"alertas_criticas":[],"resumen":"texto"}\`;
+REGLAS:inicio=${startDate},max ${maxProv}/dia,lunes-viernes,doi<=${doiCrit}=alta,${doiCrit+1}-${doiWarn}=media,resto/null=baja.
+JSON:{"schedule":[{"fecha":"YYYY-MM-DD","dia":"Lunes","proveedores":[{"proveedor":"nombre","urgencia":"alta","doi_min":5,"razon":"motivo"}]}],"alertas_criticas":[],"resumen":"texto"}`;
 
   try {
     statusEl.textContent = '⬤ Claude AI generando el calendario óptimo...';

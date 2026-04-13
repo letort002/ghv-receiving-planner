@@ -264,13 +264,8 @@ function parseDate(raw){
   if(!raw)return null;
   const s=String(raw).trim();
   if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);
-  // MM/DD/YY or MM/DD/YYYY (US format from Excel)
   const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-  if(m){
-    let yr=parseInt(m[3]);
-    if(yr<100)yr+=2000;
-    return yr+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');
-  }
+  if(m){let yr=parseInt(m[3]);if(yr<100)yr+=2000;return yr+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');}
   try{const d=new Date(s);if(!isNaN(d))return d.toISOString().split('T')[0];}catch(e){}
   return null;
 }
@@ -343,18 +338,7 @@ function parseData(){
     if(stockQty!==null&&(provMap[prov].stockMin===null||stockQty<provMap[prov].stockMin))provMap[prov].stockMin=stockQty;
     provMap[prov].artCount++;
   }
-  const result = Object.values(provMap);
-  console.log('DEBUG proveedores encontrados:', result.length);
-  if(result.length > 0) console.log('DEBUG muestra:', JSON.stringify(result.slice(0,3)));
-  else {
-    // Log raw date samples
-    const mpH = state.mp.headers;
-    const mpFI = mpH.indexOf(gv('mp-fecha'));
-    const samples = state.mp.rows.slice(0,5).map(r => mpFI>=0 ? r[mpFI] : 'N/A');
-    console.log('DEBUG fecha column index:', mpFI, 'samples:', samples);
-    console.log('DEBUG TODAY:', TODAY);
-  }
-  return result;
+  return Object.values(provMap);
 }
 
 function calcUrgencia(p,sc,sw){

@@ -510,13 +510,13 @@ async function generate() {
       const bUrg = b.doiMin === null ? 1 : b.doiMin <= doiCrit ? 0 : b.doiMin <= doiWarn ? 1 : 2;
       return aUrg - bUrg || (a.doiMin||99) - (b.doiMin||99);
     })
-    .slice(0, 25)
+    .slice(0, 12)
     .map(p => ({
       proveedor: p.proveedor,
       n_art: p.articulos.length,
       doi_min: p.doiMin,
       criticos: p.articulos.filter(a => a.doi !== null && a.doi <= doiCrit).length,
-      muestra: p.articulos.slice(0,2).map(a => a.art.slice(0,30)).filter(Boolean).join(', ')
+      ""
     }));
 
   const prompt = `GHV supply chain planner. Responde SOLO JSON sin markdown, empieza con {.
@@ -531,7 +531,7 @@ JSON: {"schedule":[{"fecha":"YYYY-MM-DD","dia":"Lunes","proveedores":[{"proveedo
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-opus-4-5',
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }]
       })
     });

@@ -327,7 +327,7 @@ function parseData(){
     if(!prov)continue;
     const fecha=parseDate(mpFI>=0?row[mpFI]:'');
     // Filter: only 2026 AND >= today
-    if(!fecha||!fecha.startsWith('2026')||fecha<TODAY)continue;
+    if(!fecha||!fecha.startsWith('2026'))continue;
     const cod=mpCI>=0?String(row[mpCI]||'').trim():'';
     const art=mpAI>=0?String(row[mpAI]||'').trim():'';
     const key=cod||art.toLowerCase();

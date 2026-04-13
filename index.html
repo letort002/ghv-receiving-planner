@@ -416,7 +416,7 @@ function renderColMap(type, headers) {
   const na = '<option value="">— no aplica —</option>';
   const opts = headers.map(h => `<option value="${h}">${h}</option>`).join('');
   const fields = type === 'mp'
-    ? [['Proveedor','mp-proveedor'],['Artículo','mp-articulo'],['Código','mp-codigo'],['Cantidad','mp-cantidad'],['Unidad','mp-unidad'],['Finca','mp-finca']]
+    ? [['Proveedor','mp-proveedor'],['Artículo','mp-articulo'],['Fecha entrega','mp-fecha'],['Cantidad','mp-cantidad'],['Unidad','mp-unidad'],['Finca','mp-finca']]
     : [['Artículo','st-articulo'],['Código','st-codigo'],['Cantidad','st-cantidad'],['Unidad','st-unidad'],['DOI (días)','st-doi'],['Stock mín.','st-min']];
   document.getElementById(gridId).innerHTML = fields.map(([lbl, id]) =>
     `<div><label>${lbl}</label><select id="${id}">${na}${opts}</select></div>`
@@ -456,7 +456,7 @@ function parseData() {
   const stH = state.st.headers;
   const idx = (h, id) => h.indexOf(gv(id));
 
-  const mpPI = idx(mpH,'mp-proveedor'), mpAI = idx(mpH,'mp-articulo');
+  const mpPI = idx(mpH,'mp-proveedor'), mpAI = idx(mpH,'mp-articulo'), mpFI = idx(mpH,'mp-fecha');
   const mpCI = idx(mpH,'mp-codigo'), mpQI = idx(mpH,'mp-cantidad'), mpUI = idx(mpH,'mp-unidad');
   const stAI = idx(stH,'st-articulo'), stCI = idx(stH,'st-codigo');
   const stQI = idx(stH,'st-cantidad'), stDI = idx(stH,'st-doi');
@@ -479,12 +479,22 @@ function parseData() {
     const cod = mpCI >= 0 ? String(row[mpCI]||'').trim() : '';
     const qty = mpQI >= 0 ? parseFloat(row[mpQI])||0 : 0;
     const um = mpUI >= 0 ? String(row[mpUI]||'').trim() : '';
-    if (!provMap[prov]) provMap[prov] = { proveedor: prov, articulos: [], doiMin: null };
+    if (!provMap[prov]) provMap[prov] = { proveedor: prov, articulos: [], doiMin: null, fechaEntrega: null };
     const key = cod || art.toLowerCase();
     const stock = stockMap[key] || null;
     const doi = stock?.doi ?? null;
     if (doi !== null && (provMap[prov].doiMin === null || doi < provMap[prov].doiMin))
       provMap[prov].doiMin = doi;
+    const fechaRaw = mpFI >= 0 ? row[mpFI] : null;
+    let fechaStr = null;
+    if (fechaRaw) {
+      try {
+        const d = fechaRaw instanceof Date ? fechaRaw : new Date(fechaRaw);
+        if (!isNaN(d)) { fechaStr = d.toISOString().split('T')[0]; }
+      } catch(e) {}
+    }
+    if (fechaStr && (!provMap[prov].fechaEntrega || fechaStr < provMap[prov].fechaEntrega))
+      provMap[prov].fechaEntrega = fechaStr;
     provMap[prov].articulos.push({ art, cod, qty, um, doi, stockQty: stock?.qty ?? null });
   }
   return Object.values(provMap);
@@ -513,7 +523,7 @@ async function generate() {
 
   const prompt = `GHV supply chain planner Ecuador. Solo JSON sin markdown, empieza {.
 PROVEEDORES:${JSON.stringify(provSummary)}
-REGLAS:inicio=${startDate},max ${maxProv}/dia,lunes-viernes,doi<=${doiCrit}=alta,${doiCrit+1}-${doiWarn}=media,resto/null=baja.
+REGLAS:inicio=${startDate},max ${maxProv}/dia,lunes-viernes,doi<=${doiCrit}=alta,${doiCrit+1}-${doiWarn}=media,resto/null=baja. Si atrasado=true (fecha_entrega_prometida ya pasó) tratar como urgencia ALTA.
 JSON:{"schedule":[{"fecha":"YYYY-MM-DD","dia":"Lunes","proveedores":[{"proveedor":"nombre","urgencia":"alta","doi_min":5,"razon":"motivo"}]}],"alertas_criticas":[],"resumen":"texto"}`;
 
   try {

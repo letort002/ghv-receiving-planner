@@ -151,6 +151,10 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
   </div>
 
   <div class="panel-title" style="margin-bottom:10px">Mapeo de columnas</div>
+  <div id="sheet-selector" style="display:none;margin-bottom:12px">
+    <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Hoja del archivo</label>
+    <select id="mp-sheet" onchange="onSheetChange()" style="font-size:13px;padding:6px 10px;border:0.5px solid var(--bd2);border-radius:7px;background:var(--sur2);color:var(--text);font-family:IBM Plex Sans,sans-serif;width:100%;max-width:360px"></select>
+  </div>
   <div class="col-grid" id="mp-col-grid" style="display:none"></div>
 
   <div class="panel-title" style="margin-top:14px;margin-bottom:10px">Configuración</div>
@@ -207,6 +211,23 @@ let scheduleData={};
 const TODAY=new Date().toISOString().split('T')[0];
 let maxProvGlobal=2;
 
+function populateSheetSelector(wb){
+  const sel=document.getElementById('mp-sheet');
+  sel.innerHTML=wb.SheetNames.map((n,i)=>'<option value="'+i+'">'+n+'</option>').join('');
+  document.getElementById('sheet-selector').style.display='block';
+}
+
+function onSheetChange(){
+  const wb=state.mpWb;if(!wb)return;
+  const idx=parseInt(document.getElementById('mp-sheet').value);
+  const ws=wb.Sheets[wb.SheetNames[idx]];
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false,dateNF:'yyyy-mm-dd'});
+  const headers=raw[0].map(h=>String(h).trim()).filter(Boolean);
+  const rows=raw.slice(1).filter(r=>r.some(c=>c!==''));
+  state.mp={headers,rows};
+  renderColMap(headers);
+}
+
 window.onload=()=>{
   document.getElementById('hdr-date').textContent=
     new Date().toLocaleDateString('es-EC',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -225,7 +246,11 @@ function loadFile(inp,type){
     const headers=raw[0].map(h=>String(h).trim()).filter(Boolean);
     const rows=raw.slice(1).filter(r=>r.some(c=>c!==''));
     state[type]={headers,rows};
-    if(type==='mp')renderColMap(headers);
+    if(type==='mp'){
+      state.mpWb=wb;
+      populateSheetSelector(wb);
+      renderColMap(headers);
+    }
     checkReady();
   };
   reader.readAsArrayBuffer(file);

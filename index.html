@@ -556,7 +556,7 @@ Responde ÚNICAMENTE con JSON válido, sin markdown, sin texto adicional. Empiez
 
   try {
     statusEl.textContent = '⬤ Claude AI generando el calendario óptimo...';
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

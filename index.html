@@ -264,8 +264,13 @@ function parseDate(raw){
   if(!raw)return null;
   const s=String(raw).trim();
   if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);
-  const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-  if(m)return`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  // MM/DD/YY or MM/DD/YYYY (US format from Excel)
+  const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){
+    let yr=parseInt(m[3]);
+    if(yr<100)yr+=2000;
+    return yr+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');
+  }
   try{const d=new Date(s);if(!isNaN(d))return d.toISOString().split('T')[0];}catch(e){}
   return null;
 }
@@ -327,7 +332,7 @@ function parseData(){
     if(!prov)continue;
     const fecha=parseDate(mpFI>=0?row[mpFI]:'');
     // Filter: only 2026 AND >= today
-    if(!fecha||!fecha.startsWith('2026'))continue;
+    if(!fecha)continue; const yr=parseInt(fecha.slice(0,4)); if(yr<2024||yr>2030)continue;
     const cod=mpCI>=0?String(row[mpCI]||'').trim():'';
     const art=mpAI>=0?String(row[mpAI]||'').trim():'';
     const key=cod||art.toLowerCase();
